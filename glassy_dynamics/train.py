@@ -94,10 +94,21 @@ def load_data(
   for filename in filenames:
     with tf.io.gfile.GFile(filename, 'rb') as f:
       data = pickle.load(f)
+    
+    print(f"Positions shape: {data['positions'].shape}")
+    print(f"Time index: {time_index}")
+
+    target_pos = data['trajectory_target_positions'][time_index]
+    print(f"Target pos len: {len(target_pos)}")
+
+    targets = get_targets(data['positions'], target_pos)
+    print(f"Targets shape: {targets.shape}")
+    mean_targets_dist = np.mean(targets)
+    print(f"Mean target distance: {mean_targets_dist}")
+
     static_structures.append(GlassSimulationData(
         positions=data['positions'].astype(np.float32),
-        targets=get_targets(
-            data['positions'], data['trajectory_target_positions'][time_index]),
+        targets=targets,
         types=data['types'].astype(np.int32),
         box=data['box'].astype(np.float32)))
   return static_structures
@@ -120,6 +131,12 @@ def get_loss_ops(
   mask = tf.equal(types, ParticleType.A)
   prediction = tf.boolean_mask(prediction, mask)
   target = tf.boolean_mask(target, mask)
+
+  # pred_head = prediction[:, tf.newaxis][:10]
+  # target_head = target[:, tf.newaxis][:10]
+  # print(f"Pred: {pred_head}")
+  # print(f"Target: {target_head}")
+
   return LossCollection(
       l1_loss=tf.reduce_mean(tf.abs(prediction - target)),
       l2_loss=tf.reduce_mean((prediction - target)**2),
@@ -342,9 +359,17 @@ def apply_model(checkpoint_path: Text,
       max_files_to_load=max_files_to_load)
   data = load_data(file_pattern, **dataset_kwargs)
 
+  # 0 is the first set of 4096 particles
+  # 1 is the targets in GlassSimulationData named tuple
+  targets_head = data[0][1][:10]
+
   tf.reset_default_graph()
   saver = tf.train.import_meta_graph(checkpoint_path + '.meta')
   graph = tf.get_default_graph()
+
+  # p_shape = graph.get_tensor_by_name('Placeholder:0').shape
+  # print(f"Shape: {p_shape}")
+  # exit(0)
 
   placeholders = GlassSimulationData(
       positions=graph.get_tensor_by_name('Placeholder:0'),
@@ -371,7 +396,14 @@ def apply_model(checkpoint_path: Text,
       predictions.append(p)
       correlations.append(c)
 
+  predictions_head = predictions[0][:10]
+
+  print(f"Predictions head: {predictions_head}")
+  print(f"Targets head: {targets_head}")
+
+  corr_mean = np.mean(correlations)
+  corr_std = np.std(correlations)
   logging.info('Correlation: %.4f +/- %.4f',
-               np.mean(correlations),
-               np.std(correlations))
-  return predictions
+               corr_mean,
+               corr_std)
+  return corr_mean, corr_std

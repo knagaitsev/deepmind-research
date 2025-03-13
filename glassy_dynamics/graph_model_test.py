@@ -24,6 +24,18 @@ import tensorflow.compat.v1 as tf
 import graph_model
 
 
+print(tf.__version__)
+print(tf.test.is_built_with_cuda())
+# Check the number of available GPUs
+num_gpus = len(tf.config.experimental.list_physical_devices('GPU'))
+
+print(f"Number of GPUs available: {num_gpus}")
+
+# List the available CUDA devices (GPUs)
+for gpu in tf.config.experimental.list_physical_devices('GPU'):
+  print(f"Device name: {gpu.name}, Device type: {gpu.device_type}")
+
+
 class GraphModelTest(tf.test.TestCase, parameterized.TestCase):
 
   def setUp(self):
