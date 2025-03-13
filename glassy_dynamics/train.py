@@ -94,17 +94,16 @@ def load_data(
   for filename in filenames:
     with tf.io.gfile.GFile(filename, 'rb') as f:
       data = pickle.load(f)
-    
-    print(f"Positions shape: {data['positions'].shape}")
-    print(f"Time index: {time_index}")
 
     target_pos = data['trajectory_target_positions'][time_index]
-    print(f"Target pos len: {len(target_pos)}")
-
     targets = get_targets(data['positions'], target_pos)
-    print(f"Targets shape: {targets.shape}")
-    mean_targets_dist = np.mean(targets)
-    print(f"Mean target distance: {mean_targets_dist}")
+
+    # print(f"Positions shape: {data['positions'].shape}")
+    # print(f"Time index: {time_index}")
+    # print(f"Target pos len: {len(target_pos)}")
+    # print(f"Targets shape: {targets.shape}")
+    # mean_targets_dist = np.mean(targets)
+    # print(f"Mean target distance: {mean_targets_dist}")
 
     static_structures.append(GlassSimulationData(
         positions=data['positions'].astype(np.float32),
