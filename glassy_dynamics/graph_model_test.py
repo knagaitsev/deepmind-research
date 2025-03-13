@@ -21,7 +21,7 @@ from graph_nets import graphs
 import numpy as np
 import tensorflow.compat.v1 as tf
 
-from glassy_dynamics import graph_model
+import graph_model
 
 
 class GraphModelTest(tf.test.TestCase, parameterized.TestCase):

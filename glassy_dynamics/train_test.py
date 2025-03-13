@@ -19,7 +19,7 @@ import os
 import numpy as np
 import tensorflow.compat.v1 as tf
 
-from glassy_dynamics import train
+import train
 
 
 class TrainTest(tf.test.TestCase):

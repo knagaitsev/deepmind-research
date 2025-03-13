@@ -27,7 +27,7 @@ import tensorflow.compat.v1 as tf
 import tensorflow_probability as tfp
 
 
-from glassy_dynamics import graph_model
+import graph_model
 
 tf.enable_resource_variables()
 

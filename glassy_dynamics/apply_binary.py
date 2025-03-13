@@ -19,7 +19,7 @@ import os
 from absl import app
 from absl import flags
 
-from glassy_dynamics import train
+import train
 
 FLAGS = flags.FLAGS
 
