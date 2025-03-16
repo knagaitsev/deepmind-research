@@ -337,6 +337,42 @@ def train_model(train_file_pattern: Text,
   return best_so_far
 
 
+def find_shell(particle_idx, target_shell, n_edge, senders, receivers):
+  conns = []
+
+  for i in range(n_edge):
+    conns.append([])
+
+  for i in range(n_edge):
+    sender = senders[i]
+    receiver = receivers[i]
+    conns[sender].append((receiver, i))
+
+  work_list = [(particle_idx, 0)]
+  encountered = set()
+  encountered.add(particle_idx)
+  res = []
+
+  while len(work_list) > 0:
+    curr_idx, curr_shell = work_list.pop(0)
+    if curr_shell == target_shell:
+      res.append(curr_idx)
+      continue
+
+    for (c, edge_idx) in conns[curr_idx]:
+      if c not in encountered:
+        encountered.add(c)
+        work_list.append((c, curr_shell + 1))
+
+    # for i in range(n_edge):
+    #   sender = senders[i]
+    #   receiver = receivers[i]
+    #   if sender == curr_idx:
+    #     if receiver not in encountered:
+    #       work_list.append((receiver, curr_shell + 1))
+
+  return res
+
 def apply_model(checkpoint_path: Text,
                 file_pattern: Text,
                 max_files_to_load: Optional[int] = None,
@@ -396,11 +432,27 @@ def apply_model(checkpoint_path: Text,
 
   center_pos = positions_np[particle_idx]
 
-  for i in range(50):
-    edge = edges[i]
-    edge_norm = np.linalg.norm(edge)
-    # print(edge)
-    print(f"Edge norm: {edge_norm}, Sender: {senders[i]}, Receiver: {receivers[i]}")
+  for i in range(7):
+    shell = find_shell(1, i, n_edge, senders, receivers)
+    print(f"Shell size: {len(shell)}")
+
+  # for i in range(n_edge):
+  #   edge = edges[i]
+  #   sender = senders[i]
+  #   receiver = receivers[i]
+  #   edge_norm = np.linalg.norm(edge)
+  #   # print(edge)
+
+  #   if sender == particle_idx:
+  #     # print(f"Edge norm: {edge_norm}, Sender: {sender}, Receiver: {receiver}")
+
+  #     neighbor_pos = positions_np[receiver]
+  #     diff = neighbor_pos - center_pos
+
+  #     # TODO: must handle the case when we have wrapped around a periodic boundary
+  #     print(edge)
+  #     print(diff)
+  #     print("\n")
 
   exit(0)
 
