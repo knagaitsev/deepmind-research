@@ -362,6 +362,48 @@ def apply_model(checkpoint_path: Text,
   # 1 is the targets in GlassSimulationData named tuple
   targets_head = data[0][1][:10]
 
+  group_idx = 0
+  particle_idx = 0
+
+  positions_np = data[group_idx][0]
+  types_np = data[group_idx][2]
+  box_np = data[group_idx][3]
+
+  positions_tensor = tf.convert_to_tensor(positions_np)
+  types_tensor = tf.convert_to_tensor(types_np)
+  box_tensor = tf.convert_to_tensor(box_np)
+
+  print(f"Positions shape: {positions_tensor.shape}, positions head: {positions_np[:10]}")
+  print(f"Types shape: {types_tensor.shape}, types head: {types_np[:10]}")
+  print(f"Box shape: {box_tensor.shape}, box: {box_np}")
+
+  res_graph = graph_model.make_graph_from_static_structure(positions_tensor, types_tensor, box_tensor, 2.0)
+
+  print(res_graph.nodes)
+  print(res_graph.n_node)
+  print(res_graph.edges)
+  print(res_graph.n_edge)
+
+  with tf.Session() as session:
+    nodes = session.run(res_graph.nodes)
+    n_node = session.run(res_graph.n_node).item()
+    edges = session.run(res_graph.edges)
+    n_edge = session.run(res_graph.n_edge).item()
+    senders = session.run(res_graph.senders)
+    receivers = session.run(res_graph.receivers)
+
+  print(f"{n_node}, {n_edge}, edges shape: {edges.shape}, senders shape: {senders.shape}, receivers shape: {receivers.shape}")
+
+  center_pos = positions_np[particle_idx]
+
+  for i in range(50):
+    edge = edges[i]
+    edge_norm = np.linalg.norm(edge)
+    # print(edge)
+    print(f"Edge norm: {edge_norm}, Sender: {senders[i]}, Receiver: {receivers[i]}")
+
+  exit(0)
+
   tf.reset_default_graph()
   saver = tf.train.import_meta_graph(checkpoint_path + '.meta')
   graph = tf.get_default_graph()
