@@ -355,14 +355,15 @@ def find_shell(particle_idx, target_shell, n_edge, senders, receivers):
 
   while len(work_list) > 0:
     curr_idx, curr_shell = work_list.pop(0)
-    if curr_shell == target_shell:
-      res.append(curr_idx)
-      continue
-
-    for (c, edge_idx) in conns[curr_idx]:
-      if c not in encountered:
-        encountered.add(c)
-        work_list.append((c, curr_shell + 1))
+    if curr_shell == target_shell - 1:
+      for (c, edge_idx) in conns[curr_idx]:
+        if c not in encountered:
+          res.append(edge_idx)
+    else:
+      for (c, edge_idx) in conns[curr_idx]:
+        if c not in encountered:
+          encountered.add(c)
+          work_list.append((c, curr_shell + 1))
 
     # for i in range(n_edge):
     #   sender = senders[i]
@@ -432,7 +433,7 @@ def apply_model(checkpoint_path: Text,
 
   center_pos = positions_np[particle_idx]
 
-  for i in range(7):
+  for i in range(1, 8):
     shell = find_shell(1, i, n_edge, senders, receivers)
     print(f"Shell size: {len(shell)}")
 
