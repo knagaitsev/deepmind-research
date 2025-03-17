@@ -395,33 +395,32 @@ def apply_model(checkpoint_path: Text,
   dataset_kwargs = dict(
       time_index=time_index,
       max_files_to_load=max_files_to_load)
-  data = load_data(file_pattern, **dataset_kwargs)
+  orig_data = load_data(file_pattern, **dataset_kwargs)
 
   # 0 is the first set of 4096 particles
   # 1 is the targets in GlassSimulationData named tuple
-  targets_head = data[0][1][:10]
+  # targets_head = data[0][1][:10]
+
+  data = []
 
   group_idx = 0
-  particle_idx = 0
 
-  positions_np = data[group_idx][0]
-  types_np = data[group_idx][2]
-  box_np = data[group_idx][3]
+  data.append(orig_data[group_idx])
+
+  positions_np = orig_data[group_idx][0]
+  targets_np = orig_data[group_idx][1]
+  types_np = orig_data[group_idx][2]
+  box_np = orig_data[group_idx][3]
 
   positions_tensor = tf.convert_to_tensor(positions_np)
   types_tensor = tf.convert_to_tensor(types_np)
   box_tensor = tf.convert_to_tensor(box_np)
 
-  print(f"Positions shape: {positions_tensor.shape}, positions head: {positions_np[:10]}")
-  print(f"Types shape: {types_tensor.shape}, types head: {types_np[:10]}")
-  print(f"Box shape: {box_tensor.shape}, box: {box_np}")
+  # print(f"Positions shape: {positions_tensor.shape}, positions head: {positions_np[:10]}")
+  # print(f"Types shape: {types_tensor.shape}, types head: {types_np[:10]}")
+  # print(f"Box shape: {box_tensor.shape}, box: {box_np}")
 
   res_graph = graph_model.make_graph_from_static_structure(positions_tensor, types_tensor, box_tensor, 2.0)
-
-  print(res_graph.nodes)
-  print(res_graph.n_node)
-  print(res_graph.edges)
-  print(res_graph.n_edge)
 
   with tf.Session() as session:
     nodes = session.run(res_graph.nodes)
@@ -431,31 +430,34 @@ def apply_model(checkpoint_path: Text,
     senders = session.run(res_graph.senders)
     receivers = session.run(res_graph.receivers)
 
-  print(f"{n_node}, {n_edge}, edges shape: {edges.shape}, senders shape: {senders.shape}, receivers shape: {receivers.shape}")
+  # print(f"{n_node}, {n_edge}, edges shape: {edges.shape}, senders shape: {senders.shape}, receivers shape: {receivers.shape}")
 
-  center_pos = positions_np[particle_idx]
+  # for i in range(1, 8):
+  #   shell_nodes, shell_edges = find_shell(1, i, n_edge, senders, receivers)
+  #   print(f"Shell size: nodes={len(shell_nodes)}, edges={len(shell_edges)}")
 
-  for i in range(1, 8):
-    shell_nodes, shell_edges = find_shell(1, i, n_edge, senders, receivers)
-    print(f"Shell size: nodes={len(shell_nodes)}, edges={len(shell_edges)}")
+  particle_count = 10
+  shell_count = 7
+  perturb_epsilon = 0.1
 
-  # for i in range(n_edge):
-  #   edge = edges[i]
-  #   sender = senders[i]
-  #   receiver = receivers[i]
-  #   edge_norm = np.linalg.norm(edge)
-  #   # print(edge)
+  for shell_idx in range(shell_count):
+    for particle_idx in range(particle_count):
+      print(f"Particle idx: {particle_idx}")
+      shell_nodes, shell_edges = find_shell(particle_idx, 1 + shell_idx, n_edge, senders, receivers)
 
-  #   if sender == particle_idx:
-  #     # print(f"Edge norm: {edge_norm}, Sender: {sender}, Receiver: {receiver}")
+      new_positions_np = np.copy(positions_np)
+      for node_idx in shell_nodes:
+        random_vector = np.random.randn(3)
+        unit_vector = random_vector / np.linalg.norm(random_vector)
+        scaled_vector = unit_vector * perturb_epsilon
 
-  #     neighbor_pos = positions_np[receiver]
-  #     diff = neighbor_pos - center_pos
+        new_positions_np[node_idx] = positions_np[node_idx] + scaled_vector
 
-  #     # TODO: must handle the case when we have wrapped around a periodic boundary
-  #     print(edge)
-  #     print(diff)
-  #     print("\n")
+      data.append(GlassSimulationData(
+        positions=new_positions_np,
+        targets=targets_np,
+        types=types_np,
+        box=box_np))
 
   tf.reset_default_graph()
   saver = tf.train.import_meta_graph(checkpoint_path + '.meta')
@@ -486,27 +488,44 @@ def apply_model(checkpoint_path: Text,
 
   # edges_tensor = graph.get_tensor_by_name('Graph_1/edges:0')
 
+  print("Perturbed data created, running model")
+
   with tf.Session() as session:
     saver.restore(session, checkpoint_path)
     handle = session.run(test_string_handle)
     feed_dict = {p: [x[i] for x in data] for i, p in enumerate(placeholders)}
     session.run(test_initalizer, feed_dict=feed_dict)
 
-    print(test_initalizer)
-
     predictions = []
     correlations = []
-    edges_values = []
     for _ in range(len(data)):
       p, c = session.run((prediction_tensor, correlation_tensor),
                             feed_dict={dataset_handle: handle})
       predictions.append(p)
       correlations.append(c)
 
-  predictions_head = predictions[0][:10]
+  # predictions_head = predictions[0][:10]
 
-  print(f"Predictions head: {predictions_head}")
-  print(f"Targets head: {targets_head}")
+  # print(f"Predictions head: {predictions_head}")
+  # print(f"Targets head: {targets_head}")
+
+  pred_median = np.median(predictions[0])
+
+  for shell_idx in range(shell_count):
+
+    diffs = []
+    for particle_idx in range(particle_count):
+      orig_pred = predictions[0][particle_idx]
+      perturbed_pred = predictions[shell_idx * particle_count + particle_idx + 1][particle_idx]
+
+      abs_diff = abs(orig_pred - perturbed_pred)
+      diffs.append(abs_diff)
+      # print(f"Predictions: orig={orig_pred}, perturbed={perturbed_pred}")
+
+    avg_diff = np.mean(np.array(diffs))
+
+    final_val = avg_diff / (pred_median * perturb_epsilon)
+    print(f"Shell idx: {shell_idx}, Final Val: {final_val}")
 
   corr_mean = np.mean(correlations)
   corr_std = np.std(correlations)
