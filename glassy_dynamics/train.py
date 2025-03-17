@@ -336,6 +336,75 @@ def train_model(train_file_pattern: Text,
 
   return best_so_far
 
+def apply_model(checkpoint_path: Text,
+                file_pattern: Text,
+                max_files_to_load: Optional[int] = None,
+                time_index: int = 9) -> List[np.ndarray]:
+  """Applies trained GraphModel using tensorflow.
+
+  Args:
+    checkpoint_path: path from which the model is loaded.
+    file_pattern: pattern matching the files with the data.
+    max_files_to_load: the maximum number of files to load.
+      If None, all files will be loaded.
+    time_index: the time index (0-9) of the target mobilities.
+
+  Returns:
+    Predictions of the model for all files.
+  """
+  dataset_kwargs = dict(
+      time_index=time_index,
+      max_files_to_load=max_files_to_load)
+  data = load_data(file_pattern, **dataset_kwargs)
+
+  # 0 is the first set of 4096 particles
+  # 1 is the targets in GlassSimulationData named tuple
+  targets_head = data[0][1][:10]
+
+  tf.reset_default_graph()
+  saver = tf.train.import_meta_graph(checkpoint_path + '.meta')
+  graph = tf.get_default_graph()
+
+  # p_shape = graph.get_tensor_by_name('Placeholder:0').shape
+  # print(f"Shape: {p_shape}")
+  # exit(0)
+
+  placeholders = GlassSimulationData(
+      positions=graph.get_tensor_by_name('Placeholder:0'),
+      targets=graph.get_tensor_by_name('Placeholder_1:0'),
+      types=graph.get_tensor_by_name('Placeholder_2:0'),
+      box=graph.get_tensor_by_name('Placeholder_3:0'))
+  prediction_tensor = graph.get_tensor_by_name('Graph_1/Squeeze:0')
+  correlation_tensor = graph.get_tensor_by_name('Squeeze:0')
+
+  dataset_handle = graph.get_tensor_by_name('Placeholder_4:0')
+  test_initalizer = graph.get_operation_by_name('MakeIterator_1')
+  test_string_handle = graph.get_tensor_by_name('IteratorToStringHandle_1:0')
+
+  with tf.Session() as session:
+    saver.restore(session, checkpoint_path)
+    handle = session.run(test_string_handle)
+    feed_dict = {p: [x[i] for x in data] for i, p in enumerate(placeholders)}
+    session.run(test_initalizer, feed_dict=feed_dict)
+    predictions = []
+    correlations = []
+    for _ in range(len(data)):
+      p, c = session.run((prediction_tensor, correlation_tensor),
+                         feed_dict={dataset_handle: handle})
+      predictions.append(p)
+      correlations.append(c)
+
+  predictions_head = predictions[0][:10]
+
+  print(f"Predictions head: {predictions_head}")
+  print(f"Targets head: {targets_head}")
+
+  corr_mean = np.mean(correlations)
+  corr_std = np.std(correlations)
+  logging.info('Correlation: %.4f +/- %.4f',
+               corr_mean,
+               corr_std)
+  return corr_mean, corr_std
 
 def find_shell(particle_idx, target_shell, n_edge, senders, receivers):
   conns = []
@@ -376,7 +445,7 @@ def find_shell(particle_idx, target_shell, n_edge, senders, receivers):
 
   return nodes_res, edges_res
 
-def apply_model(checkpoint_path: Text,
+def apply_model_ablation(checkpoint_path: Text,
                 file_pattern: Text,
                 max_files_to_load: Optional[int] = None,
                 time_index: int = 9) -> List[np.ndarray]:
@@ -511,6 +580,7 @@ def apply_model(checkpoint_path: Text,
 
   pred_median = np.median(predictions[0])
 
+  final_vals = []
   for shell_idx in range(shell_count):
 
     diffs = []
@@ -526,10 +596,11 @@ def apply_model(checkpoint_path: Text,
 
     final_val = avg_diff / (pred_median * perturb_epsilon)
     print(f"Shell idx: {shell_idx}, Final Val: {final_val}")
+    final_vals.append(final_val)
 
-  corr_mean = np.mean(correlations)
-  corr_std = np.std(correlations)
-  logging.info('Correlation: %.4f +/- %.4f',
-               corr_mean,
-               corr_std)
-  return corr_mean, corr_std
+  # corr_mean = np.mean(correlations)
+  # corr_std = np.std(correlations)
+  # logging.info('Correlation: %.4f +/- %.4f',
+  #              corr_mean,
+  #              corr_std)
+  return final_vals
