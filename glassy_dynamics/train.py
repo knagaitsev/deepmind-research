@@ -505,7 +505,7 @@ def apply_model_ablation(checkpoint_path: Text,
   #   shell_nodes, shell_edges = find_shell(1, i, n_edge, senders, receivers)
   #   print(f"Shell size: nodes={len(shell_nodes)}, edges={len(shell_edges)}")
 
-  particle_count = 10
+  particle_count = 40
   shell_count = 7
   perturb_epsilon = 0.1
 
