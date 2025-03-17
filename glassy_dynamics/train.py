@@ -351,14 +351,16 @@ def find_shell(particle_idx, target_shell, n_edge, senders, receivers):
   work_list = [(particle_idx, 0)]
   encountered = set()
   encountered.add(particle_idx)
-  res = []
+  nodes_res = set()
+  edges_res = []
 
   while len(work_list) > 0:
     curr_idx, curr_shell = work_list.pop(0)
     if curr_shell == target_shell - 1:
       for (c, edge_idx) in conns[curr_idx]:
         if c not in encountered:
-          res.append(edge_idx)
+          nodes_res.add(c)
+          edges_res.append(edge_idx)
     else:
       for (c, edge_idx) in conns[curr_idx]:
         if c not in encountered:
@@ -372,7 +374,7 @@ def find_shell(particle_idx, target_shell, n_edge, senders, receivers):
     #     if receiver not in encountered:
     #       work_list.append((receiver, curr_shell + 1))
 
-  return res
+  return nodes_res, edges_res
 
 def apply_model(checkpoint_path: Text,
                 file_pattern: Text,
@@ -434,8 +436,8 @@ def apply_model(checkpoint_path: Text,
   center_pos = positions_np[particle_idx]
 
   for i in range(1, 8):
-    shell = find_shell(1, i, n_edge, senders, receivers)
-    print(f"Shell size: {len(shell)}")
+    shell_nodes, shell_edges = find_shell(1, i, n_edge, senders, receivers)
+    print(f"Shell size: nodes={len(shell_nodes)}, edges={len(shell_edges)}")
 
   # for i in range(n_edge):
   #   edge = edges[i]
@@ -455,11 +457,16 @@ def apply_model(checkpoint_path: Text,
   #     print(diff)
   #     print("\n")
 
-  exit(0)
-
   tf.reset_default_graph()
   saver = tf.train.import_meta_graph(checkpoint_path + '.meta')
   graph = tf.get_default_graph()
+
+  # tensor_names = [tensor.name for tensor in graph.as_graph_def().node]
+
+  # Print all tensor names
+  # for name in tensor_names:
+  #   if name.split("/")[0] == "Graph_1":
+  #     print(f"Tensor name: {name}")
 
   # p_shape = graph.get_tensor_by_name('Placeholder:0').shape
   # print(f"Shape: {p_shape}")
@@ -477,16 +484,22 @@ def apply_model(checkpoint_path: Text,
   test_initalizer = graph.get_operation_by_name('MakeIterator_1')
   test_string_handle = graph.get_tensor_by_name('IteratorToStringHandle_1:0')
 
+  # edges_tensor = graph.get_tensor_by_name('Graph_1/edges:0')
+
   with tf.Session() as session:
     saver.restore(session, checkpoint_path)
     handle = session.run(test_string_handle)
     feed_dict = {p: [x[i] for x in data] for i, p in enumerate(placeholders)}
     session.run(test_initalizer, feed_dict=feed_dict)
+
+    print(test_initalizer)
+
     predictions = []
     correlations = []
+    edges_values = []
     for _ in range(len(data)):
       p, c = session.run((prediction_tensor, correlation_tensor),
-                         feed_dict={dataset_handle: handle})
+                            feed_dict={dataset_handle: handle})
       predictions.append(p)
       correlations.append(c)
 
