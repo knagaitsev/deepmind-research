@@ -507,7 +507,7 @@ def apply_model_ablation(checkpoint_path: Text,
   #   shell_nodes, shell_edges = find_shell(1, i, n_edge, senders, receivers)
   #   print(f"Shell size: nodes={len(shell_nodes)}, edges={len(shell_edges)}")
 
-  particle_count = 10
+  particle_count = 100
   shell_count = 7
   perturb_epsilon = 0.1
   # 0 for A, 1 for B
@@ -521,10 +521,10 @@ def apply_model_ablation(checkpoint_path: Text,
 
       target_particle_id_count = 0
       for node_idx in shell_nodes:
-        if types_np[node_idx] == ablation_particle_id:
-          target_particle_id_count += 1
-        else:
-          continue
+        # if types_np[node_idx] == ablation_particle_id:
+        #   target_particle_id_count += 1
+        # else:
+        #   continue
 
         random_vector = np.random.randn(3)
         unit_vector = random_vector / np.linalg.norm(random_vector)
@@ -532,6 +532,7 @@ def apply_model_ablation(checkpoint_path: Text,
 
         new_positions_np[node_idx] = positions_np[node_idx] + scaled_vector
 
+      # print(f"Shell edges: {len(shell_edges)}")
       print(f"Particle idx: {particle_idx}, target particle count: {target_particle_id_count}")
 
       data.append(GlassSimulationData(
@@ -616,3 +617,25 @@ def apply_model_ablation(checkpoint_path: Text,
   #              corr_mean,
   #              corr_std)
   return final_vals
+
+def get_rmsd(checkpoint_path: Text,
+                file_pattern: Text,
+                max_files_to_load: Optional[int] = None,
+                time_index: int = 9) -> List[np.ndarray]:
+  dataset_kwargs = dict(
+      time_index=time_index,
+      max_files_to_load=max_files_to_load)
+  orig_data = load_data(file_pattern, **dataset_kwargs)
+
+  # 0 is the first set of 4096 particles
+  # 1 is the targets in GlassSimulationData named tuple
+  # targets_head = data[0][1][:10]
+
+  sample_means = []
+
+  for sample in orig_data:
+    targets_np = sample[1]
+    sample_mean = np.mean(targets_np)
+    sample_means.append(sample_mean)
+  
+  return np.mean(np.array(sample_means))

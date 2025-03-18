@@ -5,8 +5,8 @@ import train
 
 curr_path = Path(os.path.realpath(os.path.dirname(__file__)))
 bench_path = Path.resolve(curr_path / "bench")
-results_dir = curr_path / "results/ablation_100"
-results_path = results_dir / "all.csv"
+results_dir = curr_path / "results"
+results_path = results_dir / "rmsd.csv"
 data_path = curr_path / "data/temperature_044/test"
 
 def main():
@@ -18,8 +18,36 @@ def main():
             "time_index": 0
         },
         {
+            "s": "08",
+            "time_index": 1
+        },
+        {
+            "s": "07",
+            "time_index": 2
+        },
+        {
+            "s": "06",
+            "time_index": 3
+        },
+        {
+            "s": "05",
+            "time_index": 4
+        },
+        {
+            "s": "04",
+            "time_index": 5
+        },
+        {
             "s": "alpha",
             "time_index": 6
+        },
+        {
+            "s": "03",
+            "time_index": 7
+        },
+        {
+            "s": "02",
+            "time_index": 8
         },
         {
             "s": "01",
@@ -28,13 +56,13 @@ def main():
     ]
 
     with open(results_path, 'w') as f:
-        f.write("s,time_index,shell_index,compared_output\n")
+        f.write("s,time_index,rmsd\n")
 
     for model in models:
         s_val = model["s"]
         time_index = model["time_index"]
 
-        compared_outputs = train.apply_model_ablation(
+        rmsd = train.get_rmsd(
             checkpoint_path=f'all_checkpoints/t044_s{s_val}.ckpt',
             file_pattern=file_pattern,
             max_files_to_load=None,
@@ -42,8 +70,7 @@ def main():
         )
 
         with open(results_path, 'a') as f:
-            for (i, v) in enumerate(compared_outputs):
-                f.write(f"{s_val},{time_index},{i},{v}\n")
+            f.write(f"{s_val},{time_index},{rmsd}\n")
 
 
 if __name__ == '__main__':
