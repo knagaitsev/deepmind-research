@@ -19,8 +19,8 @@ import os
 from absl import app
 from absl import flags
 
-from glassy_dynamics import train as train_using_tf
-from glassy_dynamics import train_using_jax
+import train as train_using_tf
+# import train_using_jax
 
 FLAGS = flags.FLAGS
 
