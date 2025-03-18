@@ -29,6 +29,8 @@ import tensorflow_probability as tfp
 
 import graph_model
 
+# tf.debugging.set_log_device_placement(True)
+
 tf.enable_resource_variables()
 
 LossCollection = collections.namedtuple('LossCollection',
@@ -505,22 +507,32 @@ def apply_model_ablation(checkpoint_path: Text,
   #   shell_nodes, shell_edges = find_shell(1, i, n_edge, senders, receivers)
   #   print(f"Shell size: nodes={len(shell_nodes)}, edges={len(shell_edges)}")
 
-  particle_count = 40
+  particle_count = 10
   shell_count = 7
   perturb_epsilon = 0.1
+  # 0 for A, 1 for B
+  ablation_particle_id = 0
 
   for shell_idx in range(shell_count):
     for particle_idx in range(particle_count):
-      print(f"Particle idx: {particle_idx}")
       shell_nodes, shell_edges = find_shell(particle_idx, 1 + shell_idx, n_edge, senders, receivers)
 
       new_positions_np = np.copy(positions_np)
+
+      target_particle_id_count = 0
       for node_idx in shell_nodes:
+        if types_np[node_idx] == ablation_particle_id:
+          target_particle_id_count += 1
+        else:
+          continue
+
         random_vector = np.random.randn(3)
         unit_vector = random_vector / np.linalg.norm(random_vector)
         scaled_vector = unit_vector * perturb_epsilon
 
         new_positions_np[node_idx] = positions_np[node_idx] + scaled_vector
+
+      print(f"Particle idx: {particle_idx}, target particle count: {target_particle_id_count}")
 
       data.append(GlassSimulationData(
         positions=new_positions_np,
