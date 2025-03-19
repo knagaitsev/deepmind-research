@@ -4,7 +4,6 @@ from pathlib import Path
 import train
 
 curr_path = Path(os.path.realpath(os.path.dirname(__file__)))
-bench_path = Path.resolve(curr_path / "bench")
 results_dir = curr_path / "results"
 results_path = results_dir / "results.csv"
 data_path = curr_path / "data/temperature_044/test"

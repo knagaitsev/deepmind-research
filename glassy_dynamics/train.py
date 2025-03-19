@@ -15,6 +15,8 @@
 """Training pipeline for the prediction of particle mobilities in glasses."""
 
 
+import os
+from pathlib import Path
 import collections
 import enum
 import pickle
@@ -28,6 +30,10 @@ import tensorflow_probability as tfp
 
 
 import graph_model
+
+curr_path = Path(os.path.realpath(os.path.dirname(__file__)))
+stats_dir = curr_path / "train_stats"
+stats_path = stats_dir / "stats.csv"
 
 # tf.debugging.set_log_device_placement(True)
 
@@ -184,6 +190,14 @@ def _log_stats_and_return_mean_correlation(
     logging.info('%s: %s: %.4f +/- %.4f', label, key, mean, std)
   return np.mean([s.correlation for s in stats])
 
+def get_stats_str(stats):
+  l1_loss_mean = np.mean([s.l1_loss for s in stats])
+  l1_loss_std = np.std([s.l1_loss for s in stats])
+  l2_loss_mean = np.mean([s.l2_loss for s in stats])
+  l2_loss_std = np.std([s.l2_loss for s in stats])
+  corr_mean = np.mean([s.correlation for s in stats])
+  corr_std = np.std([s.correlation for s in stats])
+  return f"{l1_loss_mean},{l1_loss_std},{l2_loss_mean},{l2_loss_std},{corr_mean},{corr_std}"
 
 def train_model(train_file_pattern: Text,
                 test_file_pattern: Text,
@@ -295,6 +309,9 @@ def train_model(train_file_pattern: Text,
   train_stats = []
   test_stats = []
 
+  with open(stats_path, 'w') as f:
+    f.write("step,train_l1_loss_mean,train_l1_loss_std,train_l2_loss_mean,train_l2_loss_std,train_corr_mean,train_corr_std,test_l1_loss_mean,test_l1_loss_std,test_l2_loss_mean,test_l2_loss_std,test_corr_mean,test_corr_std\n")
+
   saver = tf.train.Saver()
 
   with tf.train.SingularMonitoredSession() as session:
@@ -323,9 +340,17 @@ def train_model(train_file_pattern: Text,
           feed_dict = {dataset_handle: test_handle}
           test_stats.append(session.run(loss_ops, feed_dict=feed_dict))
 
+        with open(stats_path, 'a') as f:
+          f.write(f"{i},")
+          f.write(get_stats_str(train_stats))
+          f.write(",")
+          f.write(get_stats_str(test_stats))
+          f.write("\n")
+
         # Outputs performance statistics on training and test dataset.
         _log_stats_and_return_mean_correlation('Train', train_stats)
         correlation = _log_stats_and_return_mean_correlation('Test', test_stats)
+        
         train_stats = []
         test_stats = []
 
