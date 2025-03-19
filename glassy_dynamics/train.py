@@ -102,22 +102,29 @@ def load_data(
   for filename in filenames:
     with tf.io.gfile.GFile(filename, 'rb') as f:
       data = pickle.load(f)
+    
+    positions = np.array(data['positions'])
+    targets = np.array(data['trajectory_target_positions'][time_index]).astype(np.float32)
+    types = np.array(data['types'])
+    box = np.array(data['box'])
 
-    target_pos = data['trajectory_target_positions'][time_index]
-    targets = get_targets(data['positions'], target_pos)
+    # target_pos = data['trajectory_target_positions'][time_index]
+    # targets = get_targets(data['positions'], target_pos)
 
-    # print(f"Positions shape: {data['positions'].shape}")
-    # print(f"Time index: {time_index}")
+    print(f"Positions shape: {positions.shape}")
+    print(f"Targets shape: {targets.shape}")
+    print(f"Types shape: {types.shape}")
+    print(f"Box shape: {box.shape}")
+    print(f"Time index: {time_index}")
     # print(f"Target pos len: {len(target_pos)}")
-    # print(f"Targets shape: {targets.shape}")
     # mean_targets_dist = np.mean(targets)
     # print(f"Mean target distance: {mean_targets_dist}")
 
     static_structures.append(GlassSimulationData(
-        positions=data['positions'].astype(np.float32),
+        positions=positions.astype(np.float32),
         targets=targets,
-        types=data['types'].astype(np.int32),
-        box=data['box'].astype(np.float32)))
+        types=types.astype(np.int32),
+        box=box.astype(np.float32)))
   return static_structures
 
 
@@ -210,7 +217,7 @@ def train_model(train_file_pattern: Text,
                 n_recurrences: int = 7,
                 mlp_sizes: Tuple[int] = (64, 64),
                 mlp_kwargs: Optional[Dict[Text, Any]] = None,
-                edge_threshold: float = 2.0,
+                edge_threshold: float = 5.0,
                 measurement_store_interval: int = 1000,
                 checkpoint_path: Optional[Text] = None) -> float:  # pytype: disable=annotation-type-mismatch
   """Trains GraphModel using tensorflow.
