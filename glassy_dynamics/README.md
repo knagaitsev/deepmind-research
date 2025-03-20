@@ -1,3 +1,7 @@
+# Mech Eng 416 Final Project
+
+Note: miscellanous files related to LAMMPS runs and plotting can be found in directory `other`
+
 # Unveiling the predictive power of static structure in glassy systems
 
 This repository contains an open source implementation of the graph neural

@@ -1,0 +1,41 @@
+variable Tinit equal 3000
+variable Ttarget equal 2600
+
+units metal
+boundary p p p
+atom_style full
+
+neighbor 1.0 bin
+neigh_modify delay 1
+
+read_data silica.data
+
+pair_style vashishta
+pair_coeff * * SiO.1990.vashishta Si O
+
+min_style cg
+minimize 1.0e-12 1.0e-12 20000 20000
+
+velocity all create ${Tinit} ${Vseed} rot yes mom yes dist gaussian
+timestep 0.001
+thermo 1000
+
+fix 3 all npt temp ${Tinit} ${Ttarget} 0.1 iso 1 1 1
+run 500000
+
+unfix 3
+fix 3 all nvt temp ${Ttarget} ${Ttarget} 0.1
+dump 22 all dcd 10000 out.dcd
+dump dmp all xyz 10000 out.xyz
+compute 7 all msd
+compute disp all displace/atom
+
+dump pos_dump all custom 10000 disp_atoms.data id type c_disp[1] c_disp[2] c_disp[3] c_disp[4]
+dump_modify pos_dump sort id
+
+fix	7 all ave/time 1 10 100 c_7[1] c_7[2] c_7[3] c_7[4] file msd_all.data
+
+run	2500000
+
+write_data heated.data
+write_dump all atom heated.lammpstrj
